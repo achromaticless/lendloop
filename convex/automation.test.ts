@@ -440,6 +440,44 @@ describe("daily overdue reminders", () => {
     expect((await (await signedPost(t, "/n8n/reminders/claim", { requestId })).json()).claimed).toBe(false);
   });
 
+  it("shows each party what automation did on the loan, without addresses", async () => {
+    const { t, requestId } = await overdueLoan();
+    const claim = await (await signedPost(t, "/n8n/reminders/claim", { requestId })).json();
+    // Claimed but not finished: nothing to show yet.
+    expect((await t.withIdentity(owner).query(api.requests.incoming, {}))[0].activity).toEqual([]);
+
+    await signedPost(t, "/n8n/reminders/result", { reminderId: claim.reminderId, status: "sent" });
+    const [asOwner] = await t.withIdentity(owner).query(api.requests.incoming, {});
+    const [asBorrower] = await t.withIdentity(borrower).query(api.requests.mine, {});
+    expect(asOwner.activity.map((a) => a.text)).toEqual(["Overdue reminder emailed to Bruno"]);
+    expect(asBorrower.activity.map((a) => a.text)).toEqual(["Overdue reminder emailed to you"]);
+    expect(JSON.stringify([asOwner, asBorrower])).not.toContain("@");
+
+    // A stranger sees nothing of this loan.
+    const stranger = identity("stranger", "stranger@example.com");
+    await t.withIdentity(stranger).mutation(api.users.ensureCurrent, {});
+    expect(await t.withIdentity(stranger).query(api.requests.mine, {})).toEqual([]);
+  });
+
+  it("shows a notification email once n8n reports it, and a failure as failed", async () => {
+    const { t, toolId } = await setup();
+    await t
+      .withIdentity(borrower)
+      .mutation(api.requests.create, { toolId, startDate: plusDays(2), endDate: plusDays(3) });
+    const [row] = await outboxRows(t);
+    const [before] = await t.withIdentity(owner).query(api.requests.incoming, {});
+    expect(before.activity).toEqual([]);
+
+    await signedPost(t, "/n8n/notification-result", { eventId: row._id, status: "failed" });
+    const [failed] = await t.withIdentity(owner).query(api.requests.incoming, {});
+    expect(failed.activity).toMatchObject([{ ok: false, text: "Email to you could not be sent" }]);
+
+    // A later success replaces the failure's meaning: the row now reads as sent.
+    await signedPost(t, "/n8n/notification-result", { eventId: row._id, status: "sent" });
+    const [sent] = await t.withIdentity(borrower).query(api.requests.mine, {});
+    expect(sent.activity).toMatchObject([{ ok: true, text: "Emailed Olivia: new request" }]);
+  });
+
   it("allows a failed reminder to be claimed again", async () => {
     const { t, requestId } = await overdueLoan();
     const claim = await (await signedPost(t, "/n8n/reminders/claim", { requestId })).json();

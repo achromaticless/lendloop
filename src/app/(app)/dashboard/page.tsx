@@ -222,6 +222,7 @@ function MyRequests({ items }: { items: RequestItem[] | undefined }) {
           title={r.toolName}
           subtitle={`From ${r.otherPartyName} · ${formatRange(r.startDate, r.endDate)}`}
           pill={statusPill(r.status, r.overdue)}
+          activity={r.activity}
           actions={
             r.status === "pending" ? (
               <button
@@ -276,6 +277,7 @@ function Incoming({ items }: { items: RequestItem[] | undefined }) {
           title={r.toolName}
           subtitle={`${r.otherPartyName} · ${formatRange(r.startDate, r.endDate)}`}
           pill={statusPill(r.status, r.overdue)}
+          activity={r.activity}
           actions={
             r.status === "pending" ? (
               <>

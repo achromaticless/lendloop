@@ -20,6 +20,16 @@ export function formatDay(iso: string): string {
   });
 }
 
+/** A timestamp as "just now", "5 minutes ago", "yesterday", "3 days ago". */
+export function timeAgo(at: number, now: number = Date.now()): string {
+  const seconds = Math.max(0, Math.round((now - at) / 1000));
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return rtf.format(-Math.floor(seconds / 60), "minute");
+  if (seconds < 86_400) return rtf.format(-Math.floor(seconds / 3600), "hour");
+  return rtf.format(-Math.floor(seconds / 86_400), "day");
+}
+
 export function formatRange(start: string, end: string): string {
   return start === end ? formatDay(start) : `${formatDay(start)} to ${formatDay(end)}`;
 }

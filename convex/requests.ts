@@ -183,6 +183,56 @@ export const markReturned = mutation({
 
 // ---- Read models: shaped for the UI, never raw documents, never emails ----
 
+const EVENT_TEXT = {
+  created: "new request",
+  approved: "request approved",
+  declined: "request declined",
+  cancelled: "request cancelled",
+  returned: "marked as returned",
+} as const;
+
+/**
+ * What automation did for one loan: emails that n8n reported as sent or failed,
+ * newest first. Text only, never an address. Queued or in-flight work is not
+ * shown, because nothing has happened yet.
+ */
+async function activityFor(
+  ctx: QueryCtx,
+  requestId: Id<"requests">,
+  viewer: "owner" | "borrower",
+  otherName: string,
+) {
+  const [events, reminders] = await Promise.all([
+    ctx.db.query("outbox").withIndex("by_request", (q) => q.eq("requestId", requestId)).take(20),
+    ctx.db.query("reminders").withIndex("by_request", (q) => q.eq("requestId", requestId)).take(20),
+  ]);
+  const to = (who: "owner" | "borrower") => (who === viewer ? "you" : otherName);
+  const items: { at: number; ok: boolean; text: string }[] = [];
+  for (const e of events) {
+    if (!e.emailStatus || e.emailAt === undefined) continue;
+    const ok = e.emailStatus === "sent";
+    items.push({
+      at: e.emailAt,
+      ok,
+      text: ok
+        ? `Emailed ${to(e.recipient)}: ${EVENT_TEXT[e.type]}`
+        : `Email to ${to(e.recipient)} could not be sent`,
+    });
+  }
+  for (const r of reminders) {
+    if (r.status === "claimed") continue;
+    const ok = r.status === "sent";
+    items.push({
+      at: r.sentAt ?? r.claimedAt,
+      ok,
+      text: ok
+        ? `Overdue reminder emailed to ${to("borrower")}`
+        : `Overdue reminder to ${to("borrower")} could not be sent`,
+    });
+  }
+  return items.sort((a, b) => b.at - a.at).slice(0, 3);
+}
+
 async function shape(
   ctx: QueryCtx,
   requests: Doc<"requests">[],
@@ -210,6 +260,12 @@ async function shape(
         overdue: r.status === "approved" && r.endDate < today,
         // Only the two parties ever get here, and only while the loan is live.
         pickupNote: r.status === "approved" ? (r.pickupNote ?? null) : null,
+        activity: await activityFor(
+          ctx,
+          r._id,
+          otherParty === "owner" ? "borrower" : "owner",
+          users.get(otherId)!,
+        ),
       };
     }),
   );
