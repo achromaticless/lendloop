@@ -12,7 +12,9 @@ export default defineSchema({
     // Clerk issuer + subject. The only key we trust to identify a person.
     tokenIdentifier: v.string(),
     email: v.string(), // never returned to other users; only to the n8n endpoint
-    name: v.string(), // public display name
+    // Public display name, chosen by the user in onboarding (never derived
+    // from the email). Missing until they pick one.
+    name: v.optional(v.string()),
     role: roleValidator,
     trustedLender: v.boolean(),
   }).index("by_token", ["tokenIdentifier"]),
@@ -38,6 +40,9 @@ export default defineSchema({
     startDate: v.string(), // YYYY-MM-DD
     endDate: v.string(), // YYYY-MM-DD
     status: requestStatusValidator,
+    // Written by the owner when approving. Visible only to the two parties,
+    // and only while the loan is approved.
+    pickupNote: v.optional(v.string()),
     decidedAt: v.optional(v.number()),
     returnedAt: v.optional(v.number()),
   })

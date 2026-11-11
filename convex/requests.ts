@@ -11,6 +11,10 @@ import {
 } from "./lib/dates";
 import { fail } from "./lib/errors";
 import { emitRequestEvent } from "./lib/events";
+import { publicName } from "./lib/names";
+
+const MAX_PICKUP_NOTE = 280;
+const MAX_PENDING_PER_USER = 20; // basic abuse guard
 
 /** Approved loans of a tool that overlap a date range (optionally ignoring one). */
 async function approvedOverlapping(
@@ -80,6 +84,9 @@ export const create = mutation({
         rangesOverlap(startDate, endDate, r.startDate, r.endDate),
     );
     if (duplicate) fail("CONFLICT", "You already requested this tool for those dates.");
+    if (mineOnTool.filter((r) => r.status === "pending").length >= MAX_PENDING_PER_USER) {
+      fail("CONFLICT", "You have too many pending requests. Wait for answers first.");
+    }
 
     const requestId = await ctx.db.insert("requests", {
       toolId,
@@ -94,11 +101,18 @@ export const create = mutation({
   },
 });
 
-/** Owner approves. Re-checks overlap because other loans may have been approved meanwhile. */
+/**
+ * Owner approves, optionally leaving a pick-up note for the borrower.
+ * Re-checks overlap because other loans may have been approved meanwhile.
+ */
 export const approve = mutation({
-  args: { requestId: v.id("requests") },
-  handler: async (ctx, { requestId }) => {
+  args: { requestId: v.id("requests"), pickupNote: v.optional(v.string()) },
+  handler: async (ctx, { requestId, pickupNote }) => {
     const me = await requireUser(ctx);
+    const note = pickupNote?.trim() || undefined;
+    if (note && note.length > MAX_PICKUP_NOTE) {
+      fail("INVALID", `The note can have up to ${MAX_PICKUP_NOTE} characters.`);
+    }
     const req = await loadForParty(ctx, requestId, me);
     if (req.ownerId !== me._id) fail("FORBIDDEN", "Only the tool owner can approve.");
     if (req.status !== "pending") fail("CONFLICT", "Only pending requests can be approved.");
@@ -110,7 +124,11 @@ export const approve = mutation({
     ) {
       fail("CONFLICT", "Another loan already covers those dates.");
     }
-    await ctx.db.patch(requestId, { status: "approved", decidedAt: Date.now() });
+    await ctx.db.patch(requestId, {
+      status: "approved",
+      pickupNote: note,
+      decidedAt: Date.now(),
+    });
     await emitRequestEvent(ctx, { type: "approved", requestId });
     return null;
   },
@@ -171,7 +189,7 @@ async function shape(
     requests.map(async (r) => {
       const otherId = otherParty === "owner" ? r.ownerId : r.borrowerId;
       if (!users.has(otherId)) {
-        users.set(otherId, (await ctx.db.get(otherId))?.name ?? "Neighbor");
+        users.set(otherId, publicName(await ctx.db.get(otherId)));
       }
       if (!tools.has(r.toolId)) tools.set(r.toolId, await ctx.db.get(r.toolId));
       const tool = tools.get(r.toolId);
@@ -184,6 +202,8 @@ async function shape(
         endDate: r.endDate,
         status: r.status,
         overdue: r.status === "approved" && r.endDate < today,
+        // Only the two parties ever get here, and only while the loan is live.
+        pickupNote: r.status === "approved" ? (r.pickupNote ?? null) : null,
       };
     }),
   );
@@ -229,7 +249,7 @@ export const listAll = query({
     return await Promise.all(
       rows.map(async (r) => {
         for (const id of [r.ownerId, r.borrowerId]) {
-          if (!users.has(id)) users.set(id, (await ctx.db.get(id))?.name ?? "Neighbor");
+          if (!users.has(id)) users.set(id, publicName(await ctx.db.get(id)));
         }
         if (!tools.has(r.toolId)) tools.set(r.toolId, await ctx.db.get(r.toolId));
         return {

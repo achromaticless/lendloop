@@ -33,8 +33,15 @@ function plusDays(n: number): string {
 async function setup() {
   process.env.ADMIN_EMAILS = "root@example.com";
   const t = convexTest(schema, modules);
+  const names = new Map([
+    [ana, "Ana Reyes"],
+    [tomas, "Tomas L."],
+    [root, "Root"],
+  ]);
   for (const who of [ana, tomas, root]) {
-    await t.withIdentity(who).mutation(api.users.ensureCurrent, {});
+    const asUser = t.withIdentity(who);
+    await asUser.mutation(api.users.ensureCurrent, {});
+    await asUser.mutation(api.users.setDisplayName, { name: names.get(who)! });
   }
   return t;
 }
@@ -117,6 +124,93 @@ describe("tools", () => {
     expect(text).not.toContain("@");
     expect(text).not.toContain("tokenIdentifier");
     expect(list[0].ownerName).toBe("Ana Reyes");
+  });
+});
+
+describe("display names", () => {
+  it("never derives the public name from the email", async () => {
+    const t = await setup();
+    const newcomer = identity("newbie", "josueusgt@example.com");
+    const asNewcomer = t.withIdentity(newcomer);
+    await asNewcomer.mutation(api.users.ensureCurrent, {});
+    const me = await asNewcomer.query(api.users.me, {});
+    expect(me?.needsName).toBe(true);
+    expect(me?.name).toBeNull();
+
+    await asNewcomer.mutation(api.tools.create, toolArgs);
+    const seenByOthers = await t.withIdentity(ana).query(api.tools.list, {});
+    // Provisioned but unnamed: other people only ever see "Neighbor".
+    expect(seenByOthers[0].ownerName).toBe("Neighbor");
+    expect(JSON.stringify(seenByOthers)).not.toContain("josueusgt");
+  });
+
+  it("validates the chosen name", async () => {
+    const t = await setup();
+    const asAna = t.withIdentity(ana);
+    await expect(asAna.mutation(api.users.setDisplayName, { name: "   " })).rejects.toThrow();
+    await expect(
+      asAna.mutation(api.users.setDisplayName, { name: "ana@example.com" }),
+    ).rejects.toThrow();
+    await expect(
+      asAna.mutation(api.users.setDisplayName, { name: "x".repeat(31) }),
+    ).rejects.toThrow();
+    await asAna.mutation(api.users.setDisplayName, { name: "  Ana   R. " });
+    expect((await asAna.query(api.users.me, {}))?.name).toBe("Ana R.");
+  });
+});
+
+describe("pick-up notes", () => {
+  const dates = { startDate: plusDays(2), endDate: plusDays(4) };
+  const note = "Front porch, after 6 pm.";
+
+  async function approvedWithNote() {
+    const t = await setup();
+    const toolId = await t.withIdentity(ana).mutation(api.tools.create, toolArgs);
+    const requestId = await t
+      .withIdentity(tomas)
+      .mutation(api.requests.create, { toolId, ...dates });
+    await t
+      .withIdentity(ana)
+      .mutation(api.requests.approve, { requestId, pickupNote: note });
+    return { t, requestId };
+  }
+
+  it("is visible to the owner and the borrower only", async () => {
+    const { t } = await approvedWithNote();
+    const borrowerView = await t.withIdentity(tomas).query(api.requests.mine, {});
+    const ownerView = await t.withIdentity(ana).query(api.requests.incoming, {});
+    expect(borrowerView[0].pickupNote).toBe(note);
+    expect(ownerView[0].pickupNote).toBe(note);
+    // Nobody else can read it: not another user, and not the admin listing.
+    expect(await t.withIdentity(root).query(api.requests.mine, {})).toHaveLength(0);
+    expect(JSON.stringify(await t.withIdentity(root).query(api.requests.listAll, {}))).not.toContain(note);
+  });
+
+  it("disappears once the loan is returned", async () => {
+    const { t, requestId } = await approvedWithNote();
+    await t.withIdentity(ana).mutation(api.requests.markReturned, { requestId });
+    const view = await t.withIdentity(tomas).query(api.requests.mine, {});
+    expect(view[0].pickupNote).toBeNull();
+  });
+
+  it("is limited in length", async () => {
+    const t = await setup();
+    const toolId = await t.withIdentity(ana).mutation(api.tools.create, toolArgs);
+    const requestId = await t
+      .withIdentity(tomas)
+      .mutation(api.requests.create, { toolId, ...dates });
+    await expect(
+      t.withIdentity(ana).mutation(api.requests.approve, { requestId, pickupNote: "x".repeat(281) }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("abuse limits", () => {
+  it("caps how many tools one person can list", async () => {
+    const t = await setup();
+    const asAna = t.withIdentity(ana);
+    for (let i = 0; i < 50; i++) await asAna.mutation(api.tools.create, toolArgs);
+    await expect(asAna.mutation(api.tools.create, toolArgs)).rejects.toThrow();
   });
 });
 

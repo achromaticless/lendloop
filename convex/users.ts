@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser, requireAdmin } from "./lib/auth";
+import { getCurrentUser, requireAdmin, requireUser } from "./lib/auth";
 import { fail } from "./lib/errors";
-import { displayNameFromEmail, isAdminEmail } from "./lib/roles";
+import { MAX_DISPLAY_NAME, publicName } from "./lib/names";
+import { isAdminEmail } from "./lib/roles";
 
 /**
  * Called by the client right after sign-in. Creates the user row on first
@@ -34,7 +35,6 @@ export const ensureCurrent = mutation({
     await ctx.db.insert("users", {
       tokenIdentifier: identity.tokenIdentifier,
       email: identity.email,
-      name: displayNameFromEmail(identity.email),
       role,
       trustedLender: false,
     });
@@ -49,10 +49,29 @@ export const me = query({
     const user = await getCurrentUser(ctx);
     if (!user) return null;
     return {
-      name: user.name,
+      name: user.name ?? null,
+      needsName: !user.name,
       role: user.role,
       trustedLender: user.trustedLender,
     };
+  },
+});
+
+/** Onboarding: the user picks the only name other people will see. */
+export const setDisplayName = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, { name }) => {
+    const user = await requireUser(ctx);
+    const clean = name.trim().replace(/\s+/g, " ");
+    if (!clean) fail("INVALID", "Please enter a name.");
+    if (clean.length > MAX_DISPLAY_NAME) {
+      fail("INVALID", `Names can have up to ${MAX_DISPLAY_NAME} characters.`);
+    }
+    if (clean.includes("@")) {
+      fail("INVALID", "Please do not use an email address as your name.");
+    }
+    await ctx.db.patch(user._id, { name: clean });
+    return null;
   },
 });
 
@@ -72,7 +91,7 @@ export const listLenders = query({
           .take(200);
         return {
           userId: u._id,
-          name: u.name,
+          name: publicName(u),
           listings: tools.length,
           trustedLender: u.trustedLender,
         };

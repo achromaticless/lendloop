@@ -10,10 +10,12 @@ import { requireUser } from "./lib/auth";
 import { todayISO } from "./lib/dates";
 import { fail } from "./lib/errors";
 import { emitRequestEvent } from "./lib/events";
+import { publicName } from "./lib/names";
 import { categoryValidator, conditionValidator } from "./lib/validators";
 
 const MAX_NAME = 80;
 const MAX_DESCRIPTION = 280;
+const MAX_TOOLS_PER_USER = 50; // basic abuse guard
 
 function cleanText(label: string, value: string, max: number): string {
   const text = value.trim();
@@ -88,7 +90,7 @@ export const list = query({
           category: t.category,
           condition: t.condition,
           description: t.description,
-          ownerName: owner?.name ?? "Neighbor",
+          ownerName: publicName(owner),
           ownerTrusted: owner?.trustedLender ?? false,
           isMine: t.ownerId === me._id,
           ...status,
@@ -133,6 +135,15 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const me = await requireUser(ctx);
+    const owned = await ctx.db
+      .query("tools")
+      .withIndex("by_owner", (q) =>
+        q.eq("ownerId", me._id).eq("deletedAt", undefined),
+      )
+      .take(MAX_TOOLS_PER_USER);
+    if (owned.length >= MAX_TOOLS_PER_USER) {
+      fail("CONFLICT", `You can list up to ${MAX_TOOLS_PER_USER} tools.`);
+    }
     return await ctx.db.insert("tools", {
       ownerId: me._id, // always the caller, never an argument
       name: cleanText("Name", args.name, MAX_NAME),
