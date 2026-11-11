@@ -93,6 +93,18 @@ describe("tools", () => {
     expect(publicList).toEqual([{ name: "Cordless drill", category: "Power tools" }]);
   });
 
+  it("public list hides tools that are currently out on loan", async () => {
+    const t = await setup();
+    const toolId = await t.withIdentity(ana).mutation(api.tools.create, toolArgs);
+    const requestId = await t
+      .withIdentity(tomas)
+      .mutation(api.requests.create, { toolId, startDate: plusDays(0), endDate: plusDays(2) });
+    await t.withIdentity(ana).mutation(api.requests.approve, { requestId });
+    expect(await t.query(api.tools.listPublic, {})).toEqual([]);
+    await t.withIdentity(ana).mutation(api.requests.markReturned, { requestId });
+    expect(await t.query(api.tools.listPublic, {})).toHaveLength(1);
+  });
+
   it("only the owner can edit a tool", async () => {
     const t = await setup();
     const toolId = await t.withIdentity(ana).mutation(api.tools.create, toolArgs);
