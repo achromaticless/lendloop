@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* Design tokens from the approved LendLoop design. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: #f4f1e8;
+  --color-surface: #ffffff;
+  --color-ink: #14201a;
+  --color-ink-soft: #4a554f;
+  --color-muted: #55605a;
+  --color-line: #ddd8ca;
+  --color-line-soft: #eeeadd;
+  --color-sand: #e6e0cf;
+
+  --color-brand: #17553f;
+  --color-brand-soft: #dcebe2;
+  --color-brand-ink: #0f4a35;
+  --color-mint: #9fd3b8;
+
+  --color-amber-soft: #fbe9c2;
+  --color-amber-ink: #6b4a00;
+  --color-sky-soft: #dce6f5;
+  --color-sky-ink: #173a6b;
+  --color-rose-soft: #f8d9cf;
+  --color-rose-ink: #7a2410;
+  --color-danger-line: #d9a89a;
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bricolage);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-paper);
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Honour reduced motion everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -43,18 +43,24 @@ async function loanStatus(ctx: QueryCtx, toolId: Id<"tools">, today: string) {
 }
 
 /**
- * PUBLIC (no sign-in): exactly name and category. Nothing about owners,
- * not even ids.
+ * PUBLIC (no sign-in): exactly name and category, only for tools that are
+ * available right now. Nothing about owners, not even ids.
  */
 export const listPublic = query({
   args: {},
   handler: async (ctx) => {
+    const today = todayISO();
     const tools = await ctx.db
       .query("tools")
       .withIndex("by_deleted", (q) => q.eq("deletedAt", undefined))
       .order("desc")
       .take(100);
-    return tools.map((t) => ({ name: t.name, category: t.category }));
+    const available = await Promise.all(
+      tools.map(async (t) => ((await loanStatus(ctx, t._id, today)).available ? t : null)),
+    );
+    return available
+      .filter((t) => t !== null)
+      .map((t) => ({ name: t.name, category: t.category }));
   },
 });
 
