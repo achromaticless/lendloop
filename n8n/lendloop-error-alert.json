@@ -1,0 +1,38 @@
+{
+  "name": "LendLoop - Error alert",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c3000000-0000-4000-8000-000000000001",
+      "name": "Any workflow failed",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "LendLoop <noreply@example.com>",
+        "toEmail": "REPLACE_WITH_YOUR_ALERT_EMAIL",
+        "subject": "={{ 'LendLoop automation failed: ' + $json.workflow.name }}",
+        "emailFormat": "text",
+        "text": "={{ 'Workflow: ' + $json.workflow.name + '\\nFailed node: ' + ($json.execution.lastNodeExecuted || 'unknown') + '\\nError: ' + ($json.execution.error?.message || 'unknown') + '\\nExecution: ' + $json.execution.url }}",
+        "options": { "appendAttribution": false }
+      },
+      "id": "c3000000-0000-4000-8000-000000000002",
+      "name": "Email the alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [220, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": { "smtp": { "id": "lendloopSmtp", "name": "LendLoop SMTP" } }
+    }
+  ],
+  "connections": {
+    "Any workflow failed": { "main": [[{ "node": "Email the alert", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "pinData": {}
+}
