@@ -76,12 +76,9 @@ function AdminConsole() {
   return (
     <div className="flex flex-col gap-14">
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="font-display text-5xl leading-none font-bold tracking-[-0.03em] sm:text-[56px]">
-            Admin console
-          </h1>
-          <span className="rounded-full bg-[#f2b84b] px-3 py-1 text-[13px] font-bold">Admin</span>
-        </div>
+        <h1 className="font-display text-5xl leading-none font-bold tracking-[-0.03em] sm:text-[56px]">
+          Admin console
+        </h1>
         <p className="text-lg text-ink-soft">
           Every loan, every listing, every lender. Changes here are checked on the server.
         </p>

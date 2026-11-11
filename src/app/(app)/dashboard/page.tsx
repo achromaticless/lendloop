@@ -70,7 +70,7 @@ function Dashboard() {
               href={`/dashboard?tab=${t.id}`}
               aria-current={on ? "page" : undefined}
               className={`inline-flex min-h-12 items-center rounded-full border-[1.5px] px-[22px] text-base font-semibold transition hover:-translate-y-px ${
-                on ? "border-ink bg-ink text-paper" : "border-line bg-surface text-ink"
+                on ? "border-ink bg-ink text-paper" : "border-line bg-surface text-ink hover:bg-brand-soft"
               }`}
             >
               {t.label}

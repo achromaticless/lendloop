@@ -47,7 +47,7 @@ export default function BrowsePage() {
               aria-pressed={on}
               onClick={() => setCategory(c)}
               className={`min-h-11 rounded-full border-[1.5px] px-[18px] text-[15px] font-semibold transition hover:-translate-y-px active:scale-[0.97] ${
-                on ? "border-ink bg-ink text-paper" : "border-line bg-surface text-ink"
+                on ? "border-ink bg-ink text-paper" : "border-line bg-surface text-ink hover:bg-brand-soft"
               }`}
             >
               {c} <span className="font-medium opacity-70">{countFor(c)}</span>
