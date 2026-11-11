@@ -6,6 +6,8 @@ LendLoop is a neighborhood tool-lending board. Neighbors list tools they are wil
 
 Stack: Next.js (App Router) · Clerk · Convex · n8n Cloud · TypeScript.
 
+![LendLoop landing page](docs/landing.png)
+
 ## Features
 
 - **Public page:** read-only list of tools that are available right now (name and category only, no owner data) and a sign-in button.
