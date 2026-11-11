@@ -1,6 +1,6 @@
-import { SignIn } from "@clerk/nextjs";
 import Link from "next/link";
 import { Suspense } from "react";
+import { SignInForm } from "@/components/SignInForm";
 import { Logo } from "@/components/ui/Logo";
 import { CATEGORY_STYLES } from "@/lib/categories";
 
@@ -97,27 +97,9 @@ export default function SignInPage() {
           </svg>
           Back to home
         </Link>
-        <div className="flex flex-1 flex-col items-center justify-center gap-5">
-          <p className="max-w-[400px] text-center text-[15px] text-ink-soft">
-            New here? Your account is created automatically once you verify your email.
-          </p>
+        <div className="flex flex-1 items-center justify-center">
           <Suspense>
-            <SignIn
-              fallbackRedirectUrl="/browse"
-              appearance={{
-                variables: {
-                  colorPrimary: "#17553F",
-                  colorBackground: "#F4F1E8",
-                  borderRadius: "0.875rem",
-                  fontFamily: "var(--font-inter), system-ui, sans-serif",
-                },
-                elements: {
-                  rootBox: "w-full max-w-[440px]",
-                  cardBox: "w-full shadow-none",
-                  card: "bg-transparent shadow-none border-0 p-0",
-                },
-              }}
-            />
+            <SignInForm />
           </Suspense>
         </div>
       </section>
