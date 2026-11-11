@@ -39,6 +39,14 @@ export const requestStatusValidator = v.union(
   v.literal("cancelled"),
   v.literal("returned"),
 );
+export const eventTypeValidator = v.union(
+  v.literal("created"),
+  v.literal("approved"),
+  v.literal("declined"),
+  v.literal("cancelled"),
+  v.literal("returned"),
+);
+
 export type RequestStatus =
   | "pending"
   | "approved"

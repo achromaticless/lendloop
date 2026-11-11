@@ -34,6 +34,8 @@ function AdminConsole() {
   const loans = useQuery(api.requests.listAll);
   const lenders = useQuery(api.users.listLenders);
   const tools = useQuery(api.tools.list, {});
+  const outbox = useQuery(api.automation.listOutbox);
+  const retryEvent = useMutation(api.automation.retry);
   const setTrusted = useMutation(api.users.setTrusted);
   const removeTool = useMutation(api.tools.remove);
 
@@ -50,6 +52,17 @@ function AdminConsole() {
     { value: overdue, label: "Overdue", tone: "text-rose-ink" },
     { value: trusted, label: "Trusted lenders", tone: "text-amber-ink" },
   ];
+
+  async function retry(outboxId: Id<"outbox">) {
+    setError(null);
+    try {
+      await retryEvent({ outboxId });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  const failedEvents = outbox?.filter((e) => e.deliveryStatus === "failed").length ?? 0;
 
   async function toggle(userId: Id<"users">, next: boolean) {
     setError(null);
@@ -132,6 +145,93 @@ function AdminConsole() {
                     </tr>
                   );
                 })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-5" aria-labelledby="automation-title">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="automation-title" className="font-display text-4xl font-bold tracking-[-0.02em]">
+            Automation
+          </h2>
+          {failedEvents > 0 && <Pill tone="rose">{failedEvents} failed</Pill>}
+        </div>
+        <p className="max-w-[640px] text-[15px] text-ink-soft">
+          Every request change is queued here and sent to n8n, with retries. If delivery keeps
+          failing it stops and shows up below so nothing is lost silently.
+        </p>
+        <div className="overflow-x-auto rounded-[20px] border border-line bg-surface">
+          <table className="w-full border-collapse text-[15px]">
+            <thead>
+              <tr className="border-b border-line text-left text-[13px] font-semibold text-muted">
+                {["Event", "Tool", "Notifies", "Delivery to n8n", "Email", ""].map((h, i) => (
+                  <th key={i} scope="col" className="whitespace-nowrap px-5 py-3.5">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {outbox === undefined ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-6 text-muted">
+                    Loading…
+                  </td>
+                </tr>
+              ) : outbox.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-6 text-muted">
+                    No events yet. They appear when a request is created or changes status.
+                  </td>
+                </tr>
+              ) : (
+                outbox.map((e) => (
+                  <tr key={e._id} className="border-b border-line-soft align-top last:border-0">
+                    <td className="px-5 py-4 font-semibold capitalize">{e.type}</td>
+                    <td className="px-5 py-4">{e.toolName}</td>
+                    <td className="px-5 py-4 capitalize">{e.recipient}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex flex-col gap-1">
+                        <Pill
+                          tone={
+                            e.deliveryStatus === "delivered"
+                              ? "green"
+                              : e.deliveryStatus === "failed"
+                                ? "rose"
+                                : "amber"
+                          }
+                          className="self-start capitalize"
+                        >
+                          {e.deliveryStatus}
+                          {e.attempts > 1 ? ` · ${e.attempts} tries` : ""}
+                        </Pill>
+                        {e.lastError && <span className="text-xs text-rose-ink">{e.lastError}</span>}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      {e.emailStatus === "sent" ? (
+                        <Pill tone="green">Sent</Pill>
+                      ) : e.emailStatus === "failed" ? (
+                        <Pill tone="rose">Failed</Pill>
+                      ) : (
+                        <span className="text-muted">Waiting</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      {e.deliveryStatus === "failed" && (
+                        <button
+                          type="button"
+                          onClick={() => retry(e._id)}
+                          className={buttonClass({ variant: "outline", className: "text-sm" })}
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

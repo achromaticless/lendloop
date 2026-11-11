@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import {
   categoryValidator,
   conditionValidator,
+  eventTypeValidator,
   requestStatusValidator,
   roleValidator,
 } from "./lib/validators";
@@ -50,4 +51,42 @@ export default defineSchema({
     .index("by_borrower", ["borrowerId"])
     .index("by_owner", ["ownerId"])
     .index("by_status_end", ["status", "endDate"]),
+
+  // Transactional outbox: a row is written in the same mutation that changes a
+  // request, then delivered to n8n with retries. Holds ids and states only.
+  outbox: defineTable({
+    key: v.string(), // idempotency key, e.g. "approved:<requestId>"
+    requestId: v.id("requests"),
+    type: eventTypeValidator,
+    recipient: v.union(v.literal("owner"), v.literal("borrower")),
+    deliveryStatus: v.union(
+      v.literal("pending"),
+      v.literal("delivered"),
+      v.literal("failed"),
+    ),
+    attempts: v.number(),
+    lastError: v.optional(v.string()),
+    deliveredAt: v.optional(v.number()),
+    // Reported back by n8n once the email was really sent (or failed).
+    emailStatus: v.optional(v.union(v.literal("sent"), v.literal("failed"))),
+    emailAt: v.optional(v.number()),
+  })
+    .index("by_key", ["key"])
+    .index("by_request", ["requestId"])
+    .index("by_delivery", ["deliveryStatus"]),
+
+  // One row per overdue loan per UTC day. The unique key makes the daily
+  // reminder idempotent: a retried run cannot create or send a second one.
+  reminders: defineTable({
+    key: v.string(), // "reminder:<requestId>:<YYYY-MM-DD>"
+    requestId: v.id("requests"),
+    day: v.string(),
+    status: v.union(v.literal("claimed"), v.literal("sent"), v.literal("failed")),
+    claimedAt: v.number(),
+    attempts: v.number(),
+    error: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_key", ["key"])
+    .index("by_request", ["requestId"]),
 });

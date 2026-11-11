@@ -211,7 +211,12 @@ export const remove = mutation({
 
     for (const r of open) {
       await ctx.db.patch(r._id, { status: "cancelled", decidedAt: Date.now() });
-      await emitRequestEvent(ctx, { type: "cancelled", requestId: r._id });
+      // Removing the tool cancels the loan, so the borrower is the one to tell.
+      await emitRequestEvent(ctx, {
+        type: "cancelled",
+        requestId: r._id,
+        recipient: "borrower",
+      });
     }
     await ctx.db.patch(toolId, { deletedAt: Date.now() });
     return null;

@@ -96,7 +96,7 @@ export const create = mutation({
       endDate,
       status: "pending",
     });
-    await emitRequestEvent(ctx, { type: "created", requestId });
+    await emitRequestEvent(ctx, { type: "created", requestId, recipient: "owner" });
     return requestId;
   },
 });
@@ -129,7 +129,7 @@ export const approve = mutation({
       pickupNote: note,
       decidedAt: Date.now(),
     });
-    await emitRequestEvent(ctx, { type: "approved", requestId });
+    await emitRequestEvent(ctx, { type: "approved", requestId, recipient: "borrower" });
     return null;
   },
 });
@@ -142,7 +142,7 @@ export const decline = mutation({
     if (req.ownerId !== me._id) fail("FORBIDDEN", "Only the tool owner can decline.");
     if (req.status !== "pending") fail("CONFLICT", "Only pending requests can be declined.");
     await ctx.db.patch(requestId, { status: "declined", decidedAt: Date.now() });
-    await emitRequestEvent(ctx, { type: "declined", requestId });
+    await emitRequestEvent(ctx, { type: "declined", requestId, recipient: "borrower" });
     return null;
   },
 });
@@ -156,7 +156,8 @@ export const cancel = mutation({
     if (req.borrowerId !== me._id) fail("FORBIDDEN", "Only the borrower can cancel.");
     if (req.status !== "pending") fail("CONFLICT", "Only pending requests can be cancelled.");
     await ctx.db.patch(requestId, { status: "cancelled", decidedAt: Date.now() });
-    await emitRequestEvent(ctx, { type: "cancelled", requestId });
+    // The borrower withdrew, so the owner is the one to tell.
+    await emitRequestEvent(ctx, { type: "cancelled", requestId, recipient: "owner" });
     return null;
   },
 });
@@ -170,7 +171,7 @@ export const markReturned = mutation({
     if (req.ownerId !== me._id) fail("FORBIDDEN", "Only the tool owner can mark it returned.");
     if (req.status !== "approved") fail("CONFLICT", "Only approved loans can be returned.");
     await ctx.db.patch(requestId, { status: "returned", returnedAt: Date.now() });
-    await emitRequestEvent(ctx, { type: "returned", requestId });
+    await emitRequestEvent(ctx, { type: "returned", requestId, recipient: "borrower" });
     return null;
   },
 });
