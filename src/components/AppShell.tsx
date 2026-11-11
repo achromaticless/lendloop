@@ -51,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     open: false,
     tool: null,
   });
+  const [menuOpen, setMenuOpen] = useState(false);
   const started = useRef(false);
 
   // Create the user row once the Convex session is ready.
@@ -87,7 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pendingIncoming = incoming?.filter((r) => r.status === "pending").length ?? 0;
   const tab = searchParams.get("tab") ?? "";
 
-  const links: { href: string; label: string; active: boolean; badge?: number }[] = [
+  const links: NavItem[] = [
     { href: "/browse", label: "Browse", active: pathname === "/browse" },
     {
       href: "/dashboard?tab=listings",
@@ -114,57 +115,81 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{ me, openToolForm: (tool) => setForm({ open: true, tool: tool ?? null }) }}
     >
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-4 px-5 py-3 sm:px-10">
+      <header
+        className="border-b border-line bg-surface"
+        onKeyDown={(e) => e.key === "Escape" && setMenuOpen(false)}
+      >
+        <div className="mx-auto flex min-h-16 w-full max-w-[1280px] flex-wrap items-center justify-between gap-4 px-5 py-3 sm:px-10">
           <div className="flex flex-wrap items-center gap-x-10 gap-y-2">
             <Logo href="/browse" />
             {!onWelcome && (
-              <nav aria-label="Main" className="flex flex-wrap gap-1.5">
+              <nav aria-label="Main" className="hidden flex-wrap gap-1.5 lg:flex">
                 {links.map((l) => (
-                  <Link
-                    key={l.label}
-                    href={l.href}
-                    aria-current={l.active ? "page" : undefined}
-                    className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[15px] transition ${
-                      l.active ? "bg-ink font-semibold text-paper" : "font-medium hover:bg-sand"
-                    }`}
-                  >
-                    {l.label}
-                    {!!l.badge && (
-                      <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#e5622b] px-1.5 text-xs font-bold text-ink">
-                        {l.badge}
-                      </span>
-                    )}
-                  </Link>
+                  <NavLink key={l.label} link={l} />
                 ))}
               </nav>
             )}
           </div>
           <div className="flex items-center gap-4">
             {!onWelcome && (
+              <ListToolButton
+                className="hidden lg:inline-flex"
+                onClick={() => setForm({ open: true, tool: null })}
+              />
+            )}
+            <div className={onWelcome ? "" : "hidden lg:block"}>
+              <UserButton />
+            </div>
+            {!onWelcome && (
               <button
                 type="button"
-                onClick={() => setForm({ open: true, tool: null })}
-                className={buttonClass()}
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+                aria-expanded={menuOpen}
+                aria-controls="mobile-menu"
+                onClick={() => setMenuOpen((open) => !open)}
+                className="inline-flex size-11 items-center justify-center rounded-full border-[1.5px] border-line bg-surface transition hover:bg-brand-soft lg:hidden"
               >
                 <svg
-                  width="16"
-                  height="16"
+                  width="20"
+                  height="20"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2.2"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   aria-hidden="true"
                 >
-                  <path d="M12 5v14M5 12h14" />
+                  <path d={menuOpen ? "M6 6l12 12M18 6 6 18" : "M4 8h16M4 16h16"} />
                 </svg>
-                List a tool
               </button>
             )}
-            <UserButton />
           </div>
         </div>
+
+        {menuOpen && !onWelcome && (
+          <div id="mobile-menu" className="border-t border-line lg:hidden">
+            <nav
+              aria-label="Main"
+              className="mx-auto flex w-full max-w-[1280px] flex-col gap-1.5 px-5 py-4 sm:px-10"
+            >
+              {links.map((l) => (
+                <NavLink key={l.label} link={l} large onNavigate={() => setMenuOpen(false)} />
+              ))}
+            </nav>
+            <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 border-t border-line-soft px-5 py-4 sm:px-10">
+              <ListToolButton
+                onClick={() => {
+                  setMenuOpen(false);
+                  setForm({ open: true, tool: null });
+                }}
+              />
+              <div className="flex items-center gap-3">
+                <span className="max-w-[10rem] truncate text-[15px] font-medium">{me.name}</span>
+                <UserButton />
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto w-full max-w-[1280px] flex-1 px-5 py-10 sm:px-10 sm:py-14">
@@ -177,5 +202,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setForm((f) => ({ ...f, open: false }))}
       />
     </AppContext.Provider>
+  );
+}
+
+type NavItem = { href: string; label: string; active: boolean; badge?: number };
+
+function NavLink({
+  link,
+  large = false,
+  onNavigate,
+}: {
+  link: NavItem;
+  large?: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href={link.href}
+      onClick={onNavigate}
+      aria-current={link.active ? "page" : undefined}
+      className={`inline-flex items-center gap-2 rounded-full px-4 text-[15px] transition ${
+        large ? "min-h-12" : "min-h-11"
+      } ${link.active ? "bg-ink font-semibold text-paper" : "font-medium hover:bg-sand"}`}
+    >
+      {link.label}
+      {!!link.badge && (
+        <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#e5622b] px-1.5 text-xs font-bold text-ink">
+          {link.badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function ListToolButton({ onClick, className = "" }: { onClick: () => void; className?: string }) {
+  return (
+    <button type="button" onClick={onClick} className={buttonClass({ className })}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+      List a tool
+    </button>
   );
 }
