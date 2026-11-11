@@ -40,6 +40,23 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Tailwind v4 resets buttons to the default arrow. Anything clickable gets the hand. */
+a[href],
+button:not(:disabled),
+summary,
+select,
+label:has(input[type="radio"]),
+label:has(input[type="checkbox"]),
+input[type="date"]::-webkit-calendar-picker-indicator,
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 :focus-visible {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
