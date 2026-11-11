@@ -312,6 +312,7 @@ describe("n8n HTTP endpoints", () => {
     const details = await res.json();
     expect(details).toMatchObject({
       type: "created",
+      alreadySent: false,
       recipientRole: "owner",
       to: "owner@example.com",
       toName: "Olivia",
@@ -352,6 +353,14 @@ describe("n8n HTTP endpoints", () => {
     expect((await (await post("sent")).json()).changed).toBe(false); // retry: no-op
     expect((await (await post("failed")).json()).changed).toBe(false); // late duplicate cannot undo it
     expect((await outboxRows(t))[0].emailStatus).toBe("sent");
+
+    // n8n can now tell a duplicate run apart and skip the second email.
+    const detailsPath = `/n8n/notification?eventId=${eventId}`;
+    const details = await t.fetch(detailsPath, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${await n8nToken({ method: "GET", path: detailsPath })}` },
+    });
+    expect((await details.json()).alreadySent).toBe(true);
   });
 });
 

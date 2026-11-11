@@ -308,6 +308,21 @@ describe("requests", () => {
     ).rejects.toThrow();
   });
 
+  it("cannot approve a request whose dates already passed, but can decline it", async () => {
+    const { t, toolId } = await withTool();
+    const requestId = await t
+      .withIdentity(tomas)
+      .mutation(api.requests.create, { toolId, ...dates });
+    // Time passes while the request sits unanswered.
+    await t.run(async (ctx) =>
+      ctx.db.patch(requestId, { startDate: plusDays(-6), endDate: plusDays(-5) }),
+    );
+    await expect(
+      t.withIdentity(ana).mutation(api.requests.approve, { requestId }),
+    ).rejects.toThrow(/dates have passed/);
+    await t.withIdentity(ana).mutation(api.requests.decline, { requestId });
+  });
+
   it("only the borrower can cancel, and only while pending", async () => {
     const { t, toolId } = await withTool();
     const requestId = await t

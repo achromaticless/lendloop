@@ -116,6 +116,11 @@ export const approve = mutation({
     const req = await loadForParty(ctx, requestId, me);
     if (req.ownerId !== me._id) fail("FORBIDDEN", "Only the tool owner can approve.");
     if (req.status !== "pending") fail("CONFLICT", "Only pending requests can be approved.");
+    // A request nobody answered can outlive its dates; approving it would
+    // create an instantly overdue loan and trigger reminders for nothing.
+    if (req.endDate < todayISO()) {
+      fail("CONFLICT", "Those dates have passed. Ask the borrower to send a new request.");
+    }
     const tool = await ctx.db.get(req.toolId);
     if (!tool || tool.deletedAt !== undefined) fail("CONFLICT", "This tool was removed.");
     if (

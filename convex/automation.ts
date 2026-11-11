@@ -187,6 +187,8 @@ export const notificationDetails = internalQuery({
     return {
       eventId: event._id,
       type: event.type,
+      // Lets n8n skip a duplicate run (e.g. Convex retried after a slow answer).
+      alreadySent: event.emailStatus === "sent",
       recipientRole: event.recipient,
       to: recipient.email,
       toName: publicName(recipient),
