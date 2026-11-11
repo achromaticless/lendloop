@@ -142,7 +142,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "LendLoop <noreply@example.com>",
+        "fromEmail": "LendLoop <REPLACE_WITH_VERIFIED_SENDER>",
         "toEmail": "={{ $json.to }}",
         "subject": "={{ 'Reminder: please return ' + $json.toolName }}",
         "emailFormat": "text",

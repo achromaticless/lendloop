@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "LendLoop <noreply@example.com>",
+        "fromEmail": "LendLoop <REPLACE_WITH_VERIFIED_SENDER>",
         "toEmail": "REPLACE_WITH_YOUR_ALERT_EMAIL",
         "subject": "={{ 'LendLoop automation failed: ' + $json.workflow.name }}",
         "emailFormat": "text",
